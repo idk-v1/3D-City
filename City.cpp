@@ -64,11 +64,11 @@ Block City::getBlock(int pX, int pY, int pZ)
     return blocks[pX][pY][pZ];
 }
 
-Block City::getBlock(sf::Vector3i pos)
+Block City::getBlock(sf::Vector3i pPos)
 {
-    if (pos.x < 0 || pos.y < 0 || pos.z < 0 || pos.x >= size.x || pos.y >= size.y || pos.z >= size.z)
+    if (pPos.x < 0 || pPos.y < 0 || pPos.z < 0 || pPos.x >= size.x || pPos.y >= size.y || pPos.z >= size.z)
         return (*templatePtr)[0];
-    return blocks[pos.x][pos.y][pos.z];
+    return blocks[pPos.x][pPos.y][pPos.z];
 }
 
 

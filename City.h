@@ -17,7 +17,7 @@ class City
         void calcVis();
 
         Block getBlock(int pX, int pY, int pZ);
-        Block getBlock(sf::Vector3i pos);
+        Block getBlock(sf::Vector3i ppos);
 
         void setTemplatePtr(std::vector<Block>* pTemplatePtr);
 
