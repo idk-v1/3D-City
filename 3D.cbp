@@ -2,7 +2,7 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6" />
 	<Project>
-		<Option title="3D" />
+		<Option title="3D City" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
@@ -13,7 +13,6 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
-					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add library="sfml-graphics" />
@@ -28,7 +27,6 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
-					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -42,12 +40,12 @@
 			<Add option="-Wall" />
 		</Compiler>
 		<Unit filename="Main.cpp" />
-		<Unit filename="include/Block.h" />
-		<Unit filename="include/City.h" />
-		<Unit filename="include/Vec3Dist.h" />
-		<Unit filename="src/Block.cpp" />
-		<Unit filename="src/City.cpp" />
-		<Unit filename="src/Vec3Dist.cpp" />
+		<Unit filename="Block.h" />
+		<Unit filename="City.h" />
+		<Unit filename="Vec3Dist.h" />
+		<Unit filename="Block.cpp" />
+		<Unit filename="City.cpp" />
+		<Unit filename="Vec3Dist.cpp" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>

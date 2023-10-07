@@ -90,7 +90,7 @@ int main()
         view.reset(sf::FloatRect(0, 0, win.getSize().x, win.getSize().y));
         win.setView(view);
 
-        win.setTitle("Final Earth 3D | FPS: " + (delta ? std::to_string(1000 / delta) : "Inf"));
+        win.setTitle("3D City | FPS: " + (delta ? std::to_string(1000 / delta) : "Infinity"));
 
         win.clear(bg);
 
