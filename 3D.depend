@@ -1,0 +1,31 @@
+# depslib dependency file v1.0
+1696187010 source:/home/mogus/Documents/prog/c++/3D/main.cpp
+	<SFML/Graphics.hpp>
+	<math.h>
+
+1696375902 source:/home/mogus/Documents/prog/c++/3D/src/Block.cpp
+	"Block.h"
+
+1696377040 /home/mogus/Documents/prog/c++/3D/include/Block.h
+	<SFML/Graphics.hpp>
+
+1696638389 source:/home/mogus/Documents/prog/c++/3D/Main.cpp
+	<fstream>
+	"City.h"
+	"Vec3Dist.h"
+
+1696614125 /home/mogus/Documents/prog/c++/3D/include/City.h
+	<random>
+	<vector>
+	"Block.h"
+
+1696614885 source:/home/mogus/Documents/prog/c++/3D/src/City.cpp
+	"City.h"
+
+1696638458 source:/home/mogus/Documents/prog/c++/3D/src/Vec3Dist.cpp
+	"Vec3Dist.h"
+
+1696613942 /home/mogus/Documents/prog/c++/3D/include/Vec3Dist.h
+	<SFML/System/Vector3.hpp>
+	<math.h>
+
