@@ -1,3 +1,6 @@
+// https://github.com/idk-v1/3D-City
+// Currently just a basic 3D renderer with collisions and minor clipping errors
+
 #include <fstream>
 
 #include "City.h"
