@@ -1,3 +1,4 @@
 bin/
 obj/
-3D.depend
+*.depend
+*.layout
