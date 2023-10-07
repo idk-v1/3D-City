@@ -87,6 +87,22 @@ int main()
         pos.y += vel.y;
         pos.z += vel.z;
 
+        if (city.getBlock(pos.x / 10.f + 0.5f + (vel.x > 0 ? 0.5f : -0.5f), pos.y / 10.f + 0.5f, pos.z / 10.f + 0.5f).isSolid)
+        {
+            pos.x -= vel.x;
+            vel.x = 0;
+        }
+        if (city.getBlock(pos.x / 10.f + 0.5f, pos.y / 10.f + 0.5f + (vel.y > 0 ? 0.5f : -0.5f), pos.z / 10.f + 0.5f).isSolid)
+        {
+            pos.y -= vel.y;
+            vel.y = 0;
+        }
+        if (city.getBlock(pos.x / 10.f + 0.5f, pos.y / 10.f + 0.5f, pos.z / 10.f + 0.5f + (vel.z > 0 ? 0.5f : -0.5f)).isSolid)
+        {
+            pos.z -= vel.z;
+            vel.z = 0;
+        }
+
         view.reset(sf::FloatRect(0, 0, win.getSize().x, win.getSize().y));
         win.setView(view);
 
@@ -230,11 +246,11 @@ bool project(sf::Vertex& pVert, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot
     d.y = s.x * (c.y * z + s.y * (s.z * y + c.z * x)) + c.x * (c.z * y - s.z * x);
     d.z = c.x * (c.y * z + s.y * (s.z * y + c.z * x)) - s.x * (c.z * y - s.z * x);
 
-    pVert.position.x = pWinSize.x / 2 - (d.x * 1000.f) / std::sqrt(x * x + y * y + z * z);
-    pVert.position.y = pWinSize.y / 2 - (d.y * 1000.f) / std::sqrt(x * x + y * y + z * z);
+    pVert.position.x = pWinSize.x / 2 - (d.x * 1000.f) / -d.z;
+    pVert.position.y = pWinSize.y / 2 - (d.y * 1000.f) / -d.z;
     pVert.color.a = std::fmax(0, 255 - std::fmin(255, 255.f * (std::sqrt(x * x + y * y + z * z) / fog)));
 
-    return d.z < 0;
+    return d.z < 0.f;
 }
 
 
