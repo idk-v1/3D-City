@@ -26,7 +26,12 @@ void City::generate(sf::Uint64 pSeed)
 
     for (int x = 0; x < size.x; x++)
         for (int z = 0; z < size.z; z++)
-            blocks[x][0][z].setAttrib((*templatePtr)[1]);
+        {
+            if (x % gridSize && z % gridSize)
+                blocks[x][0][z].setAttrib((*templatePtr)[3]);
+            else
+                blocks[x][0][z].setAttrib((*templatePtr)[2]);
+        }
 
     for (int x = 0; x < size.x; x++)
         for (int y = 1; y < size.y; y++)

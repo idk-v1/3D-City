@@ -39,7 +39,7 @@ int main()
     std::vector<Vec3Dist> reorder;
     std::vector<Block> templates;
 
-    int delta, count, time = 0, dayLength = 60000;
+    int delta, count, dayTime = 0, dayLength = 60000;
     unsigned long long ticks = 0;
     bool focus = false, click = false, paused = false;
 
@@ -51,9 +51,9 @@ int main()
     vert.resize(size.x * size.y * size.z * 4 * 3 * 2);
     loadBlockTemplates(templates);
     city.setTemplatePtr(&templates);
-    city.generate(0);
+    city.generate(time(0));
     tex.loadFromFile("res/blocks.png");
-    overlay.setFillColor(sf::Color(63, 63, 63, 127));
+    overlay.setFillColor(sf::Color(0, 0, 0, 96));
 
     while (win.isOpen())
     {
@@ -78,11 +78,13 @@ int main()
                         paused = !paused;
                         if (paused)
                         {
+                            win.setFramerateLimit(20);
                             win.setMouseCursorVisible(true);
                             sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
                         }
                         else
                         {
+                            win.setFramerateLimit(60);
                             win.setMouseCursorVisible(false);
                             sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
                             mousePos = sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2);
@@ -94,7 +96,7 @@ int main()
 
         delta = timer.restart().asMilliseconds();
         ticks += delta;
-        time = ticks % dayLength - dayLength / 2;
+        dayTime = ticks % dayLength - dayLength / 2;
         if (focus && !paused)
             getInput(win, vel, rot, mousePos, delta);
         collide(city, pos, vel);
@@ -123,7 +125,7 @@ int main()
                         count += 2;
                     }
 
-        win.draw(vert);
+        win.draw(vert, &tex);
 
         if (paused)
         {
@@ -142,6 +144,7 @@ int main()
 
 void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize)
 {
+    int texSize = 30;
     float scale = 10.f;
     if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * scale)
     {
@@ -150,7 +153,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5), pWinSize) &&
                 project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5), pWinSize) &&
                 project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5), pWinSize) &&
-                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5), pWinSize));
+                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5), pWinSize))
+        {
+            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
@@ -162,7 +171,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex +  0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex +  2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex +  3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
+                project(pVert[pIndex +  3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize))
+        {
+            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
@@ -174,7 +189,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex +  4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize));
+                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize))
+        {
+            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
+            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i] = sf::Vertex();
@@ -186,7 +207,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex +  4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
+                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize))
+        {
+            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
+            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i] = sf::Vertex();
@@ -198,7 +225,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex +  8], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex +  9], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
+                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize))
+        {
+            pVert[pIndex + 8].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 9].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 8 + i] = sf::Vertex();
@@ -210,7 +243,13 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
         if (/**/project(pVert[pIndex +  8], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex +  9], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
+                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize))
+        {
+            pVert[pIndex + 8].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 9].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 0 * texSize);
+            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
+            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
+        }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 8 + i] = sf::Vertex();
@@ -253,6 +292,7 @@ void loadBlockTemplates(std::vector<Block>& pBlocks)
         for (int i = 0; i < count; i++)
         {
             file >> solid;
+            pBlocks[i].type = i;
             pBlocks[i].isSolid = solid;
         }
     }
