@@ -4,10 +4,12 @@
 #include <fstream>
 
 #include "City.h"
-#include "Vec3Dist.h"
 
 
 void getInput(sf::RenderWindow& pWin, sf::Vector3f& pVel, sf::Vector3f& pRot, sf::Vector2i& pMousePos, int pDelta);
+
+
+void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel);
 
 
 void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize);
@@ -27,26 +29,31 @@ int main()
     sf::VertexArray vert;
     sf::Texture tex;
     sf::Color bg(255, 127, 255);
+    sf::RectangleShape overlay;
 
     sf::Vector3f pos(-50.f, 100.f, -50.f), vel, rot(225.f, -45.f, 0.f);
-    sf::Vector2i mousePos;
+    sf::Vector2i mousePos(win.getSize().x / 2, win.getSize().y / 2);
 
     sf::Vector3i size(21, 10, 21);
     City city(size);
     std::vector<Vec3Dist> reorder;
     std::vector<Block> templates;
 
-    int delta, count;
-    bool focus = false;
+    int delta, count, time = 0, dayLength = 60000;
+    unsigned long long ticks = 0;
+    bool focus = false, click = false, paused = false;
 
     win.setFramerateLimit(60);
+    win.setMouseCursorVisible(false);
+    sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
     reorder.resize(size.x * size.y * size.z);
     vert.setPrimitiveType(sf::Quads);
-    vert.resize(size.x * size.y * size.z * 4 * 6 * 2);
+    vert.resize(size.x * size.y * size.z * 4 * 3 * 2);
     loadBlockTemplates(templates);
     city.setTemplatePtr(&templates);
     city.generate(0);
     tex.loadFromFile("res/blocks.png");
+    overlay.setFillColor(sf::Color(63, 63, 63, 127));
 
     while (win.isOpen())
     {
@@ -63,48 +70,34 @@ int main()
             case sf::Event::LostFocus:
                 focus = false;
                 break;
-            case sf::Event::MouseButtonPressed:
-                if (focus && evt.mouseButton.button == sf::Mouse::Left && win.getViewport(view).contains(sf::Mouse::getPosition(win)))
+            case sf::Event::KeyPressed:
+                if (focus)
                 {
-                    win.setMouseCursorVisible(false);
-                    sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
-                    mousePos = sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2);
-                }
-                break;
-            case sf::Event::MouseButtonReleased:
-                if (focus && evt.mouseButton.button == sf::Mouse::Left)
-                {
-                    win.setMouseCursorVisible(true);
-                    sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
+                    if (evt.key.code == sf::Keyboard::Escape)
+                    {
+                        paused = !paused;
+                        if (paused)
+                        {
+                            win.setMouseCursorVisible(true);
+                            sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
+                        }
+                        else
+                        {
+                            win.setMouseCursorVisible(false);
+                            sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
+                            mousePos = sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2);
+                        }
+                    }
                 }
                 break;
             }
 
         delta = timer.restart().asMilliseconds();
-        if (focus)
+        ticks += delta;
+        time = ticks % dayLength - dayLength / 2;
+        if (focus && !paused)
             getInput(win, vel, rot, mousePos, delta);
-        vel.x *= 0.8f;
-        vel.y *= 0.8f;
-        vel.z *= 0.8f;
-        pos.x += vel.x;
-        pos.y += vel.y;
-        pos.z += vel.z;
-
-        if (city.getBlock(pos.x / 10.f + 0.5f + (vel.x > 0 ? 0.5f : -0.5f), pos.y / 10.f + 0.5f, pos.z / 10.f + 0.5f).isSolid)
-        {
-            pos.x -= vel.x;
-            vel.x = 0;
-        }
-        if (city.getBlock(pos.x / 10.f + 0.5f, pos.y / 10.f + 0.5f + (vel.y > 0 ? 0.5f : -0.5f), pos.z / 10.f + 0.5f).isSolid)
-        {
-            pos.y -= vel.y;
-            vel.y = 0;
-        }
-        if (city.getBlock(pos.x / 10.f + 0.5f, pos.y / 10.f + 0.5f, pos.z / 10.f + 0.5f + (vel.z > 0 ? 0.5f : -0.5f)).isSolid)
-        {
-            pos.z -= vel.z;
-            vel.z = 0;
-        }
+        collide(city, pos, vel);
 
         view.reset(sf::FloatRect(0, 0, win.getSize().x, win.getSize().y));
         win.setView(view);
@@ -113,19 +106,7 @@ int main()
 
         win.clear(bg);
 
-        city.calcVis();
-
-        count = 0;
-        for (int x = 0; x < size.x; x++)
-            for (int y = 0; y < size.y; y++)
-                for (int z = 0; z < size.z; z++)
-                    if (city.getBlock(x, y, z).isSolid)
-                        reorder[count++] = Vec3Dist(pos, sf::Vector3f(x, y, z));
-
-        std::sort(reorder.begin(), reorder.begin() + count, [](Vec3Dist a, Vec3Dist b)
-        {
-            return a.dist > b.dist;
-        });
+        city.calcVis(reorder, pos);
 
         count = 0;
         for (int x = 0; x < size.x; x++)
@@ -133,26 +114,29 @@ int main()
                 for (int z = 0; z < size.z; z++)
                     if (city.getBlock(x, y, z).isSolid)
                     {
-                        genCube(vert, count * 4 * 6, city.getBlock(sf::Vector3i(reorder[count / 2].pos)), pos, rot, reorder[count / 2].pos, win.getSize());
-                        for (int i = 0; i < 4 * 6; i++)
+                        genCube(vert, count * 4 * 3, city.getBlock(sf::Vector3i(reorder[count / 2].pos)), pos, rot, reorder[count / 2].pos, win.getSize());
+                        for (int i = 0; i < 4 * 3; i++)
                         {
-                            vert[(count + 1) * 4 * 6 + i] = vert[count * 4 * 6 + i];
-                            vert[count * 4 * 6 + i].color = bg;
+                            vert[(count + 1) * 4 * 3 + i] = vert[count * 4 * 3 + i];
+                            vert[count * 4 * 3 + i].color = bg;
                         }
                         count += 2;
                     }
 
         win.draw(vert);
 
+        if (paused)
+        {
+            overlay.setSize(sf::Vector2f(win.getSize()));
+            win.draw(overlay);
+        }
+
         win.display();
 
-        for (int i = 0; i < count * 4 * 6; i++)
+        for (int i = 0; i < vert.getVertexCount(); i++)
             vert[i] = sf::Vertex();
-        for (int i = 0; i < count / 2; i++)
-        {
-            reorder[i].dist = 0;
-            reorder[i].pos = sf::Vector3f();
-        }
+        for (int i = 0; i < reorder.size(); i++)
+            reorder[i] = Vec3Dist();
     }
 }
 
@@ -171,65 +155,65 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
     }
-    if (pBlock.visXN && pPlayerPos.x < (pObjPos.x - 0.5f) * scale)
+    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x - 0.5f) * scale)
     {
         for (int i = 0; i < 4; i++)
-            pVert[pIndex + 4 + i].color = sf::Color(0, 0, 0);
-        if (/**/project(pVert[pIndex +  4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex +  5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
+            pVert[pIndex + 0 + i].color = sf::Color(0, 0, 0);
+        if (/**/project(pVert[pIndex +  0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex +  2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex +  3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
         else
             for (int i = 0; i < 4; i++)
-                pVert[pIndex + 4 + i] = sf::Vertex();
+                pVert[pIndex + 0 + i] = sf::Vertex();
     }
     if (pBlock.visYP && pPlayerPos.y > (pObjPos.y + 0.5f) * scale)
     {
         for (int i = 0; i < 4; i++)
-            pVert[pIndex + 8 + i].color = sf::Color(192, 192, 192);
-        if (/**/project(pVert[pIndex +  8], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex +  9], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize));
+            pVert[pIndex + 4 + i].color = sf::Color(192, 192, 192);
+        if (/**/project(pVert[pIndex +  4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize));
         else
             for (int i = 0; i < 4; i++)
-                pVert[pIndex + 8 + i] = sf::Vertex();
+                pVert[pIndex + 4 + i] = sf::Vertex();
     }
-    if (pBlock.visYN && pPlayerPos.y < (pObjPos.y - 0.5f) * scale)
+    else if (pBlock.visYN && pPlayerPos.y < (pObjPos.y - 0.5f) * scale)
     {
         for (int i = 0; i < 4; i++)
-            pVert[pIndex + 12 + i].color = sf::Color(64, 64, 64);
-        if (/**/project(pVert[pIndex + 12], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 13], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 14], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 15], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
+            pVert[pIndex + 4 + i].color = sf::Color(64, 64, 64);
+        if (/**/project(pVert[pIndex +  4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
         else
             for (int i = 0; i < 4; i++)
-                pVert[pIndex + 12 + i] = sf::Vertex();
+                pVert[pIndex + 4 + i] = sf::Vertex();
     }
     if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * scale)
     {
         for (int i = 0; i < 4; i++)
-            pVert[pIndex + 16 + i].color = sf::Color(128, 128, 128);
-        if (/**/project(pVert[pIndex + 16], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 17], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 18], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 19], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
+            pVert[pIndex + 8 + i].color = sf::Color(128, 128, 128);
+        if (/**/project(pVert[pIndex +  8], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex +  9], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize));
         else
             for (int i = 0; i < 4; i++)
-                pVert[pIndex + 16 + i] = sf::Vertex();
+                pVert[pIndex + 8 + i] = sf::Vertex();
     }
-    if (pBlock.visZN && pPlayerPos.z < (pObjPos.z - 0.5f) * scale)
+    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z - 0.5f) * scale)
     {
         for (int i = 0; i < 4; i++)
-            pVert[pIndex + 20 + i].color = sf::Color(128, 128, 128);
-        if (/**/project(pVert[pIndex + 20], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 21], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 22], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 23], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
+            pVert[pIndex + 8 + i].color = sf::Color(128, 128, 128);
+        if (/**/project(pVert[pIndex +  8], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex +  9], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize));
         else
             for (int i = 0; i < 4; i++)
-                pVert[pIndex + 20 + i] = sf::Vertex();
+                pVert[pIndex + 8 + i] = sf::Vertex();
     }
 }
 
@@ -306,33 +290,57 @@ void getInput(sf::RenderWindow& pWin, sf::Vector3f& pVel, sf::Vector3f& pRot, sf
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift))
         pVel.y -= pDelta * speed / 100.f;
 
-    if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
+    pRot.x -= (pMousePos.x - sf::Mouse::getPosition(pWin).x) * pDelta / 50.f * sensitivity.x;
+    pRot.y += (pMousePos.y - sf::Mouse::getPosition(pWin).y) * pDelta / 50.f * sensitivity.y;
+    if (pRot.y > 90.f)
+        pRot.y = 90.f;
+    if (pRot.y < -90.f)
+        pRot.y = -90.f;
+    if (pRot.x >= 360)
+        pRot.x -= 360;
+    if (pRot.x < 0)
+        pRot.x += 360;
+
+
+    // mouse leaves left of window
+    if (sf::Mouse::getPosition(pWin).x < 0)
+        sf::Mouse::setPosition(sf::Vector2i(pWin.getSize().x + sf::Mouse::getPosition(pWin).x, sf::Mouse::getPosition(pWin).y), pWin);
+    // mouse leaves right of window
+    if (sf::Mouse::getPosition(pWin).x >= pWin.getSize().x)
+        sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x - pWin.getSize().x, sf::Mouse::getPosition(pWin).y), pWin);
+    // mouse leaves top of window
+    if (sf::Mouse::getPosition(pWin).y < 0)
+        sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x, pWin.getSize().y + sf::Mouse::getPosition(pWin).y), pWin);
+    // mouse leaves bottom of window
+    if (sf::Mouse::getPosition(pWin).y >= pWin.getSize().y)
+        sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x, sf::Mouse::getPosition(pWin).y - pWin.getSize().y), pWin);
+
+    pMousePos = sf::Mouse::getPosition(pWin);
+}
+
+
+void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
+{
+    pVel.x *= 0.8f;
+    pVel.y *= 0.8f;
+    pVel.z *= 0.8f;
+    pPos.x += pVel.x;
+    pPos.y += pVel.y;
+    pPos.z += pVel.z;
+
+    if (pCity.getBlock(pPos.x / 10.f + 0.5f + (pVel.x > 0 ? 0.5f : -0.5f), pPos.y / 10.f + 0.5f, pPos.z / 10.f + 0.5f).isSolid)
     {
-        pRot.x -= (pMousePos.x - sf::Mouse::getPosition(pWin).x) * pDelta / 50.f * sensitivity.x;
-        pRot.y += (pMousePos.y - sf::Mouse::getPosition(pWin).y) * pDelta / 50.f * sensitivity.y;
-        if (pRot.y > 90.f)
-            pRot.y = 90.f;
-        if (pRot.y < -90.f)
-            pRot.y = -90.f;
-        if (pRot.x >= 360)
-            pRot.x -= 360;
-        if (pRot.x < 0)
-            pRot.x += 360;
-
-
-        // mouse leaves left of window
-        if (sf::Mouse::getPosition(pWin).x < 0)
-            sf::Mouse::setPosition(sf::Vector2i(pWin.getSize().x + sf::Mouse::getPosition(pWin).x, sf::Mouse::getPosition(pWin).y), pWin);
-        // mouse leaves right of window
-        if (sf::Mouse::getPosition(pWin).x >= pWin.getSize().x)
-            sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x - pWin.getSize().x, sf::Mouse::getPosition(pWin).y), pWin);
-        // mouse leaves top of window
-        if (sf::Mouse::getPosition(pWin).y < 0)
-            sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x, pWin.getSize().y + sf::Mouse::getPosition(pWin).y), pWin);
-        // mouse leaves bottom of window
-        if (sf::Mouse::getPosition(pWin).y >= pWin.getSize().y)
-            sf::Mouse::setPosition(sf::Vector2i(sf::Mouse::getPosition(pWin).x, sf::Mouse::getPosition(pWin).y - pWin.getSize().y), pWin);
-
-        pMousePos = sf::Mouse::getPosition(pWin);
+        pPos.x -= pVel.x;
+        pVel.x = 0;
+    }
+    if (pCity.getBlock(pPos.x / 10.f + 0.5f, pPos.y / 10.f + 0.5f + (pVel.y > 0 ? 0.5f : -0.5f), pPos.z / 10.f + 0.5f).isSolid)
+    {
+        pPos.y -= pVel.y;
+        pVel.y = 0;
+    }
+    if (pCity.getBlock(pPos.x / 10.f + 0.5f, pPos.y / 10.f + 0.5f, pPos.z / 10.f + 0.5f + (pVel.z > 0 ? 0.5f : -0.5f)).isSolid)
+    {
+        pPos.z -= pVel.z;
+        pVel.z = 0;
     }
 }

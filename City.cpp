@@ -40,8 +40,10 @@ void City::generate(sf::Uint64 pSeed)
 }
 
 
-void City::calcVis()
+void City::calcVis(std::vector<Vec3Dist>& pReorder, sf::Vector3f pPos)
 {
+    int count = 0;
+
     for (int x = 0; x < size.x; x++)
         for (int y = 0; y < size.y; y++)
             for (int z = 0; z < size.z; z++)
@@ -54,6 +56,14 @@ void City::calcVis()
                     blocks[x][y][z].visZP = !getBlock(x, y, z + 1).isSolid;
                     blocks[x][y][z].visZN = !getBlock(x, y, z - 1).isSolid;
                 }
+
+    for (int x = 0; x < size.x; x++)
+        for (int y = 0; y < size.y; y++)
+            for (int z = 0; z < size.z; z++)
+                if (getBlock(x, y, z).isSolid)
+                    pReorder[count++] = Vec3Dist(pPos, sf::Vector3f(x, y, z));
+
+    std::sort(pReorder.begin(), pReorder.begin() + count, [](Vec3Dist a, Vec3Dist b){return a.dist > b.dist;});
 }
 
 

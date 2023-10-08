@@ -13,8 +13,6 @@ class Vec3Dist
 
         Vec3Dist(sf::Vector3f pPlayerPos, sf::Vector3f pObjPos);
 
-        float getDist(sf::Vector3f pPlayerPos, sf::Vector3f pObjPos);
-
         sf::Vector3f pos;
         float dist = 0;
 };

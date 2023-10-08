@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Block.h"
+#include "Vec3Dist.h"
 
 
 class City
@@ -14,7 +15,7 @@ class City
 
         void generate(sf::Uint64 pSeed);
 
-        void calcVis();
+        void calcVis(std::vector<Vec3Dist>& pReorder, sf::Vector3f pPos);
 
         Block getBlock(int pX, int pY, int pZ);
         Block getBlock(sf::Vector3i ppos);
