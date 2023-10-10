@@ -13,6 +13,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add library="sfml-graphics" />
@@ -27,6 +28,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add directory="include" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -39,13 +41,15 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="Main.cpp" />
-		<Unit filename="Block.h" />
-		<Unit filename="City.h" />
-		<Unit filename="Vec3Dist.h" />
 		<Unit filename="Block.cpp" />
+		<Unit filename="Block.h" />
 		<Unit filename="City.cpp" />
+		<Unit filename="City.h" />
+		<Unit filename="Light.cpp" />
+		<Unit filename="Light.h" />
+		<Unit filename="Main.cpp" />
 		<Unit filename="Vec3Dist.cpp" />
+		<Unit filename="Vec3Dist.h" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>
