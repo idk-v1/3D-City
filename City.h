@@ -2,7 +2,6 @@
 #define CITY_H
 
 #include <random>
-#include <vector>
 
 #include "Block.h"
 #include "Vec3Dist.h"

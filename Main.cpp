@@ -284,6 +284,9 @@ void loadBlockTemplates(std::vector<Block>& pBlocks)
 {
     std::ifstream file("res/blocks.type");
     int count;
+    std::vector<std::string> lights;
+    std::string name, tempStr;
+    int lightCount;
     bool solid;
     if (file.is_open())
     {
@@ -291,9 +294,20 @@ void loadBlockTemplates(std::vector<Block>& pBlocks)
         pBlocks.resize(count);
         for (int i = 0; i < count; i++)
         {
-            file >> solid;
+            file >> solid >> lightCount;
+            lights.resize(lightCount);
+            for (int ii = 0; ii < lightCount; ii++)
+            {
+                file >> tempStr;
+                lights[ii] = tempStr;
+            }
+            file >> name;
             pBlocks[i].type = i;
             pBlocks[i].isSolid = solid;
+            pBlocks[i].lights.resize(lightCount);
+            for (int ii = 0; ii < lightCount; ii++)
+                pBlocks[i].lights[ii] = Light(lights[ii]);
+            pBlocks[i].name = name;
         }
     }
 }
@@ -301,7 +315,7 @@ void loadBlockTemplates(std::vector<Block>& pBlocks)
 
 void getInput(sf::RenderWindow& pWin, sf::Vector3f& pVel, sf::Vector3f& pRot, sf::Vector2i& pMousePos, int pDelta)
 {
-    sf::Vector2f sensitivity(1.f, 1.f);
+    sf::Vector2f sensitivity(0.25f, 0.25f);
     float speed = 1.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
     {
