@@ -12,7 +12,7 @@ void Block::setAttrib(Block pTemplate)
 }
 
 
-void toggle(int pIndex)
+void Block::toggle(int pIndex)
 {
     lights[pIndex].state = !lights[pIndex].state;
 }
