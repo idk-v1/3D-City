@@ -19,6 +19,8 @@ class City
         Block getBlock(int pX, int pY, int pZ);
         Block getBlock(sf::Vector3i ppos);
 
+        Block* getBlockPtr(int pX, int pY, int pZ);
+
         void setTemplatePtr(std::vector<Block>* pTemplatePtr);
 
     private:

@@ -15,6 +15,9 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel);
 void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize);
 
 
+void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2i pLightPos, sf::Vector2i pLightSize, sf::Vector2u pWinSize, bool pXLightState, bool pZLightState);
+
+
 bool project(sf::Vertex& pVert, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinPos);
 
 
@@ -24,17 +27,19 @@ void loadBlockTemplates(std::vector<Block>& pBlocks);
 int main()
 {
     sf::RenderWindow win(sf::VideoMode(800, 600), "");
+    sf::RenderTexture buildTex;
+    sf::Shader shader;
     sf::View view;
     sf::Clock timer;
-    sf::VertexArray vert;
+    sf::VertexArray vert, lVert;
     sf::Texture tex;
     sf::Color bg(255, 127, 255);
-    sf::RectangleShape overlay;
+    sf::RectangleShape overlay, buildRect;
 
     sf::Vector3f pos(-50.f, 100.f, -50.f), vel, rot(225.f, -45.f, 0.f);
     sf::Vector2i mousePos(win.getSize().x / 2, win.getSize().y / 2);
 
-    sf::Vector3i size(21, 10, 21);
+    sf::Vector3i size(11, 7, 11);
     City city(size);
     std::vector<Vec3Dist> reorder;
     std::vector<Block> templates;
@@ -43,17 +48,33 @@ int main()
     unsigned long long ticks = 0;
     bool focus = false, click = false, paused = false;
 
+    Block block;
+
+    if (!shader.loadFromFile("shader.frag", sf::Shader::Fragment))
+        return EXIT_FAILURE;
     win.setFramerateLimit(60);
     win.setMouseCursorVisible(false);
     sf::Mouse::setPosition(sf::Vector2i(win.getSize().x / 2, win.getSize().y / 2), win);
-    reorder.resize(size.x * size.y * size.z);
     vert.setPrimitiveType(sf::Quads);
+    lVert.setPrimitiveType(sf::Quads);
     loadBlockTemplates(templates);
     city.setTemplatePtr(&templates);
     city.generate(time(0));
     tex.loadFromFile("res/blocks.png");
     overlay.setFillColor(sf::Color(0, 0, 0, 96));
     vert.resize(size.x * size.y * size.z * 4 * 3 * 2);
+    reorder.resize(size.x * size.y * size.z);
+
+    count = 0;
+    for (int x = 0; x < size.x; x++)
+        for (int y = 0; y < size.y; y++)
+            for (int z = 0; z < size.z; z++)
+            {
+                block = city.getBlock(x, y, z);
+                if (block.isSolid)
+                    count += block.lights.size();
+            }
+    lVert.resize(count * 4);
 
     while (win.isOpen())
     {
@@ -101,14 +122,38 @@ int main()
             getInput(win, vel, rot, mousePos, delta);
         collide(city, pos, vel);
 
+        for (int x = 0; x < size.x; x++)
+            for (int y = 0; y < size.y; y++)
+                for (int z = 0; z < size.z; z++)
+                {
+                    block = city.getBlock(x, y, z);
+                    for (int i = 0; i < block.lights.size(); i++)
+                        if (rand() % 100 == 0)
+                            city.getBlockPtr(x, y, z)->toggle(i);
+                }
+
         view.reset(sf::FloatRect(0, 0, win.getSize().x, win.getSize().y));
         win.setView(view);
 
         win.setTitle("3D City | FPS: " + (delta ? std::to_string(1000 / delta) : "Infinity"));
 
-        win.clear(bg);
-
         city.calcVis(reorder, pos);
+
+        count = 0;
+        for (int x = 0; x < size.x; x++)
+            for (int y = 0; y < size.y; y++)
+                for (int z = 0; z < size.z; z++)
+                {
+                    block = city.getBlock(x, y, z);
+                    if (block.isSolid)
+                    {
+                        for (int i = 0; i < block.lights.size(); i += 2)
+                        {
+                            genLights(lVert, count, block, pos, rot, sf::Vector3f(x, y, z), block.lights[i].pos, block.lights[i].size, win.getSize(), block.lights[i].state, block.lights[i + 1].state);
+                            count += 4 * 2;
+                        }
+                    }
+                }
 
         count = 0;
         for (int x = 0; x < size.x; x++)
@@ -132,7 +177,16 @@ int main()
                         count += 2;
                     }
 
-        win.draw(vert, &tex);
+        buildTex.create(win.getSize().x, win.getSize().y);
+        buildTex.clear();
+        buildTex.draw(vert, &tex);
+        buildTex.display();
+        buildRect.setSize(sf::Vector2f(win.getSize()));
+        buildRect.setTexture(&buildTex.getTexture());
+
+        win.clear(bg);
+        win.draw(lVert);
+        win.draw(buildRect, &shader);
 
         if (paused)
         {
@@ -144,6 +198,8 @@ int main()
 
         for (int i = 0; i < vert.getVertexCount(); i++)
             vert[i] = sf::Vertex();
+        for (int i = 0; i < lVert.getVertexCount(); i++)
+            lVert[i] = sf::Vertex();
         for (int i = 0; i < reorder.size(); i++)
             reorder[i] = Vec3Dist();
     }
@@ -311,9 +367,9 @@ void loadBlockTemplates(std::vector<Block>& pBlocks)
             file >> name;
             pBlocks[i].type = i;
             pBlocks[i].isSolid = solid;
-            pBlocks[i].lights.resize(lightCount);
-            for (int ii = 0; ii < lightCount; ii++)
-                pBlocks[i].lights[ii] = Light(lights[ii]);
+            pBlocks[i].lights.resize(lightCount * 2);
+            for (int ii = 0; ii < lightCount * 2; ii++)
+                pBlocks[i].lights[ii] = Light(lights[ii / 2]);
             pBlocks[i].name = name;
         }
     }
@@ -405,3 +461,66 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
         pVel.z = 0;
     }
 }
+
+
+void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2i pLightPos, sf::Vector2i pLightSize, sf::Vector2u pWinSize, bool pXLightState, bool pZLightState)
+{
+    float scale = 10.f;
+    if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * scale)
+    {
+        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize) &&
+                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
+                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
+                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize))
+        {
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 0 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
+        }
+        else
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 0 + i] = sf::Vertex();
+    }
+    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x + 0.5f) * scale)
+    {
+        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize) &&
+                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
+                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
+                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize))
+        {
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 0 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
+        }
+        else
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 0 + i] = sf::Vertex();
+    }
+    if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * scale)
+    {
+        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f), pWinSize))
+        {
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 4 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
+        }
+        else
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 4 + i] = sf::Vertex();
+    }
+    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z + 0.5f) * scale)
+    {
+        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z - 0.5f), pWinSize))
+        {
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 4 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
+        }
+        else
+            for (int i = 0; i < 4; i++)
+                pVert[pIndex + 4 + i] = sf::Vertex();
+    }
+}
+

@@ -87,6 +87,14 @@ Block City::getBlock(sf::Vector3i pPos)
 }
 
 
+Block* City::getBlockPtr(int pX, int pY, int pZ)
+{
+    if (pX < 0 || pY < 0 || pZ < 0 || pX >= size.x || pY >= size.y || pZ >= size.z)
+        return &(*templatePtr)[0];
+    return &blocks[pX][pY][pZ];
+}
+
+
 void City::setTemplatePtr(std::vector<Block>* pTemplatePtr)
 {
     templatePtr = pTemplatePtr;
