@@ -5,6 +5,8 @@
 
 #include <math.h>
 
+#include "Global.h"
+
 
 class Vec3Dist
 {

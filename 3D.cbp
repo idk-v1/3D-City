@@ -40,6 +40,7 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-std=c17" />
 		</Compiler>
 		<Unit filename="Block.cpp" />
 		<Unit filename="Block.h" />

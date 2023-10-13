@@ -28,11 +28,12 @@ int main()
 {
     sf::RenderWindow win(sf::VideoMode(800, 600), "");
     sf::RenderTexture buildTex;
+    sf::Texture tex;
+    sf::RenderStates renderState(&tex);
     sf::Shader shader;
     sf::View view;
     sf::Clock timer;
     sf::VertexArray vert, lVert;
-    sf::Texture tex;
     sf::Color bg(255, 127, 255);
     sf::RectangleShape overlay, buildRect;
 
@@ -113,6 +114,10 @@ int main()
                     }
                 }
                 break;
+            case sf::Event::Resized:
+                view.reset(sf::FloatRect(0, 0, evt.size.width, evt.size.height));
+                win.setView(view);
+                break;
             }
 
         delta = timer.restart().asMilliseconds();
@@ -132,58 +137,36 @@ int main()
                             city.getBlockPtr(x, y, z)->toggle(i);
                 }
 
-        view.reset(sf::FloatRect(0, 0, win.getSize().x, win.getSize().y));
-        win.setView(view);
-
         win.setTitle("3D City | FPS: " + (delta ? std::to_string(1000 / delta) : "Infinity"));
 
         city.calcVis(reorder, pos);
 
         count = 0;
-        for (int x = 0; x < size.x; x++)
-            for (int y = 0; y < size.y; y++)
-                for (int z = 0; z < size.z; z++)
-                {
-                    block = city.getBlock(x, y, z);
-                    if (block.isSolid)
-                    {
-                        for (int i = 0; i < block.lights.size(); i += 2)
-                        {
-                            genLights(lVert, count, block, pos, rot, sf::Vector3f(x, y, z), block.lights[i].pos, block.lights[i].size, win.getSize(), block.lights[i].state, block.lights[i + 1].state);
-                            count += 4 * 2;
-                        }
-                    }
-                }
+        for (int ii = 0; ii < reorder.size(); ii++)
+        {
+            block = city.getBlock(sf::Vector3i(reorder[ii].pos));
+            for (int i = 0; i < block.lights.size(); i += 2)
+                genLights(lVert, count++ * 4 * 2, block, pos, rot, reorder[ii].pos, block.lights[i].pos, block.lights[i].size, win.getSize(), block.lights[i].state, block.lights[i + 1].state);
+        }
 
-        count = 0;
-        for (int x = 0; x < size.x; x++)
-            for (int y = 0; y < size.y; y++)
-                for (int z = 0; z < size.z; z++)
-                    if (city.getBlock(x, y, z).isSolid)
-                    {
-                        genCube(vert, count * 4 * 3, city.getBlock(sf::Vector3i(reorder[count / 2].pos)), pos, rot, reorder[count / 2].pos, win.getSize());
-                        for (int i = 0; i < 4; i++)
-                        {
-                            vert[(count + 1) * 4 * 3 + i] = vert[count * 4 * 3 + i];
-                            vert[count * 4 * 3 + i].color = bg;
-                            vert[count * 4 * 3 + i].texCoords.y -= 30;
-                            vert[(count + 1) * 4 * 3 + i + 4] = vert[count * 4 * 3 + i + 4];
-                            vert[count * 4 * 3 + i + 4].color = bg;
-                            vert[count * 4 * 3 + i + 4].texCoords = sf::Vector2f();
-                            vert[(count + 1) * 4 * 3 + i + 8] = vert[count * 4 * 3 + i + 8];
-                            vert[count * 4 * 3 + i + 8].color = bg;
-                            vert[count * 4 * 3 + i + 8].texCoords.y -= 30;
-                        }
-                        count += 2;
-                    }
+        for (int ii = 0; ii < reorder.size(); ii++)
+        {
+            genCube(vert, ii * 4 * 3 * 2, city.getBlock(sf::Vector3i(reorder[ii].pos)), pos, rot, reorder[ii].pos, win.getSize());
+            for (int i = 0; i < 4 * 3; i++)
+            {
+                vert[(ii * 2 + 1) * 4 * 3 + i] = vert[ii * 2 * 4 * 3 + i];
+                vert[ii * 2 * 4 * 3 + i].color = bg;
+                vert[ii * 2 * 4 * 3 + i].texCoords.y -= 60;
+            }
+        }
 
         buildTex.create(win.getSize().x, win.getSize().y);
         buildTex.clear();
         buildTex.draw(vert, &tex);
+        //buildTex.draw(vert, reorder.size(), sf::PrimitiveType::Quads, renderState);
         buildTex.display();
         buildRect.setSize(sf::Vector2f(win.getSize()));
         buildRect.setTexture(&buildTex.getTexture());
-
         win.clear(bg);
         win.draw(lVert);
         win.draw(buildRect, &shader);
@@ -207,9 +190,7 @@ int main()
 
 void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize)
 {
-    int texSize = 30;
-    float scale = 10.f;
-    if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * scale)
+    if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 0 + i].color = sf::Color(255, 255, 255);
@@ -218,16 +199,16 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5), pWinSize) &&
                 project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5), pWinSize))
         {
-            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
     }
-    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x - 0.5f) * scale)
+    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x - 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 0 + i].color = sf::Color(0, 0, 0);
@@ -236,16 +217,16 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex +  2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex +  3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize))
         {
-            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+            pVert[pIndex + 0].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 1].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 2].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 3].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
     }
-    if (pBlock.visYP && pPlayerPos.y > (pObjPos.y + 0.5f) * scale)
+    if (pBlock.visYP && pPlayerPos.y > (pObjPos.y + 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 4 + i].color = sf::Color(192, 192, 192);
@@ -254,16 +235,16 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f, pObjPos.z + 0.5f), pWinSize))
         {
-            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 3 * texSize);
-            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 3 * texSize);
+            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 4 * TEXSIZE);
+            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 4 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i] = sf::Vertex();
     }
-    else if (pBlock.visYN && pPlayerPos.y < (pObjPos.y - 0.5f) * scale)
+    else if (pBlock.visYN && pPlayerPos.y < (pObjPos.y - 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 4 + i].color = sf::Color(64, 64, 64);
@@ -272,16 +253,16 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex +  6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex +  7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize))
         {
-            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 3 * texSize);
-            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 3 * texSize);
+            pVert[pIndex + 4].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 5].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 6].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 4 * TEXSIZE);
+            pVert[pIndex + 7].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 4 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i] = sf::Vertex();
     }
-    if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * scale)
+    if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 8 + i].color = sf::Color(128, 128, 128);
@@ -290,16 +271,16 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize) &&
                 project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z + 0.5f), pWinSize))
         {
-            pVert[pIndex +  8].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
-            pVert[pIndex +  9].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+            pVert[pIndex +  8].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex +  9].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 8 + i] = sf::Vertex();
     }
-    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z - 0.5f) * scale)
+    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z - 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
             pVert[pIndex + 8 + i].color = sf::Color(128, 128, 128);
@@ -308,10 +289,10 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
                 project(pVert[pIndex + 10], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize) &&
                 project(pVert[pIndex + 11], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y - 0.5f, pObjPos.z - 0.5f), pWinSize))
         {
-            pVert[pIndex +  8].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 1 * texSize);
-            pVert[pIndex +  9].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 1 * texSize);
-            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * texSize + 1, 2 * texSize);
-            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * texSize + 1, 2 * texSize);
+            pVert[pIndex +  8].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex +  9].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 2 * TEXSIZE);
+            pVert[pIndex + 10].texCoords = sf::Vector2f((pBlock.type + 1) * TEXSIZE + 1, 3 * TEXSIZE);
+            pVert[pIndex + 11].texCoords = sf::Vector2f((pBlock.type + 0) * TEXSIZE + 1, 3 * TEXSIZE);
         }
         else
             for (int i = 0; i < 4; i++)
@@ -323,10 +304,10 @@ void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPla
 // https://en.wikipedia.org/wiki/3D_projection
 bool project(sf::Vertex& pVert, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize)
 {
-    float scale = 10.f, fog = 500.f,
-          x = pObjPos.x * scale - pPlayerPos.x,
-          y = pObjPos.y * scale - pPlayerPos.y,
-          z = pObjPos.z * scale - pPlayerPos.z;
+    float fog = 500.f,
+          x = pObjPos.x * SCALE - pPlayerPos.x,
+          y = pObjPos.y * SCALE - pPlayerPos.y,
+          z = pObjPos.z * SCALE - pPlayerPos.z;
     sf::Vector3f d,
     c(std::cos(pPlayerRot.y * 3.14f / 180.f), std::cos(pPlayerRot.x * 3.14f / 180.f), std::cos(pPlayerRot.z * 3.14f / 180.f)),
     s(std::sin(pPlayerRot.y * 3.14f / 180.f), std::sin(pPlayerRot.x * 3.14f / 180.f), std::sin(pPlayerRot.z * 3.14f / 180.f));
@@ -445,17 +426,17 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
     pPos.y += pVel.y;
     pPos.z += pVel.z;
 
-    if (pCity.getBlock(pPos.x / 10.f + 0.5f + (pVel.x > 0 ? 0.1f : -0.1f), pPos.y / 10.f - 0.5f, pPos.z / 10.f + 0.5f).isSolid)
+    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.y > 0 ? 1 : -1), pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f).isSolid)
     {
         pPos.x -= pVel.x;
         pVel.x = 0;
     }
-    if (pCity.getBlock(pPos.x / 10.f + 0.5f, pPos.y / 10.f - 0.5f + (pVel.y > 0 ? 0.1f : -0.1f), pPos.z / 10.f + 0.5f).isSolid)
+    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f, pPos.y / (float)SCALE - 0.5f + 1.f / (float)SCALE * (pVel.y > 0 ? 1 : -1), pPos.z / (float)SCALE + 0.5f).isSolid)
     {
         pPos.y -= pVel.y;
         pVel.y = 0;
     }
-    if (pCity.getBlock(pPos.x / 10.f + 0.5f, pPos.y / 10.f - 0.5f, pPos.z / 10.f + 0.5f + (pVel.z > 0 ? 0.1f : -0.1f)).isSolid)
+    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f, pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.y > 0 ? 1 : -1)).isSolid)
     {
         pPos.z -= pVel.z;
         pVel.z = 0;
@@ -465,13 +446,12 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
 
 void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2i pLightPos, sf::Vector2i pLightSize, sf::Vector2u pWinSize, bool pXLightState, bool pZLightState)
 {
-    float scale = 10.f;
-    if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * scale)
+    if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * SCALE)
     {
-        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize) &&
-                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
-                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
-                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize))
+        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f - (pLightPos.x) / (float)TEXSIZE),                pWinSize) &&
+                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE), pWinSize) &&
+                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE), pWinSize) &&
+                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f - (pLightPos.x) / (float)TEXSIZE),                pWinSize))
         {
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
@@ -480,12 +460,12 @@ void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pP
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
     }
-    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x + 0.5f) * scale)
+    else if (pBlock.visXN && pPlayerPos.x < (pObjPos.x + 0.5f) * SCALE)
     {
-        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize) &&
-                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
-                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / 30.f), pWinSize) &&
-                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f - (pLightPos.x) / 30.f),                pWinSize))
+        if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f - (pLightPos.x) / (float)TEXSIZE),                pWinSize) &&
+                project(pVert[pIndex + 1], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE), pWinSize) &&
+                project(pVert[pIndex + 2], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE), pWinSize) &&
+                project(pVert[pIndex + 3], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x - 0.5f, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f - (pLightPos.x) / (float)TEXSIZE),                pWinSize))
         {
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
@@ -494,12 +474,12 @@ void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pP
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 0 + i] = sf::Vertex();
     }
-    if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * scale)
+    if (pBlock.visZP && pPlayerPos.z > (pObjPos.z + 0.5f) * SCALE)
     {
-        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f), pWinSize) &&
-                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z + 0.5f), pWinSize))
+        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / (float)TEXSIZE,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f), pWinSize) &&
+                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / (float)TEXSIZE,                pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z + 0.5f), pWinSize))
         {
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
@@ -508,12 +488,12 @@ void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pP
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i] = sf::Vertex();
     }
-    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z + 0.5f) * scale)
+    else if (pBlock.visZN && pPlayerPos.z < (pObjPos.z + 0.5f) * SCALE)
     {
-        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / 30.f, pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / 30.f, pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z - 0.5f), pWinSize) &&
-                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / 30.f,                pObjPos.y + 0.5f - (pLightPos.y) / 30.f,                pObjPos.z - 0.5f), pWinSize))
+        if (/**/project(pVert[pIndex + 4], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / (float)TEXSIZE,                pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 5], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 6], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x + pLightSize.x) / (float)TEXSIZE, pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z - 0.5f), pWinSize) &&
+                project(pVert[pIndex + 7], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f - (pLightPos.x) / (float)TEXSIZE,                pObjPos.y + 0.5f - (pLightPos.y) / (float)TEXSIZE,                pObjPos.z - 0.5f), pWinSize))
         {
             for (int i = 0; i < 4; i++)
                 pVert[pIndex + 4 + i].color = sf::Color(255 * pXLightState, 255 * pXLightState, 255 * pXLightState);
