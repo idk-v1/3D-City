@@ -46,6 +46,7 @@
 		<Unit filename="Block.h" />
 		<Unit filename="City.cpp" />
 		<Unit filename="City.h" />
+		<Unit filename="Global.h" />
 		<Unit filename="Light.cpp" />
 		<Unit filename="Light.h" />
 		<Unit filename="Main.cpp" />
