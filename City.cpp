@@ -66,9 +66,9 @@ void City::calcVis(std::vector<Vec3Dist>& pReorder, sf::Vector3f pPos)
         for (int y = 0; y < size.y; y++)
             for (int z = 0; z < size.z; z++)
                 if (getBlock(x, y, z).isSolid)
-                    pReorder[count++] = Vec3Dist(pPos, sf::Vector3f(x, y, z));
+                    pReorder[count++] = Vec3Dist(pPos, sf::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f));
 
-    std::sort(pReorder.begin(), pReorder.begin() + count, [](Vec3Dist a, Vec3Dist b){return a.dist > b.dist;});
+    std::sort(pReorder.begin(), pReorder.end(), [](Vec3Dist a, Vec3Dist b){return a.dist > b.dist;});
 }
 
 

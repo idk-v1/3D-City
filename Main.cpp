@@ -40,7 +40,7 @@ int main()
     sf::Vector3f pos(-50.f, 100.f, -50.f), vel, rot(225.f, -45.f, 0.f);
     sf::Vector2i mousePos(win.getSize().x / 2, win.getSize().y / 2);
 
-    sf::Vector3i size(11, 7, 11);
+    sf::Vector3i size(11, 11, 11);
     City city(size);
     std::vector<Vec3Dist> reorder;
     std::vector<Block> templates;
@@ -163,7 +163,6 @@ int main()
         buildTex.create(win.getSize().x, win.getSize().y);
         buildTex.clear();
         buildTex.draw(vert, &tex);
-        //buildTex.draw(vert, reorder.size(), sf::PrimitiveType::Quads, renderState);
         buildTex.display();
         buildRect.setSize(sf::Vector2f(win.getSize()));
         buildRect.setTexture(&buildTex.getTexture());
@@ -190,6 +189,14 @@ int main()
 
 void genCube(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2u pWinSize)
 {
+    if (pObjPos.x == 0 && pObjPos.y == 0 && pObjPos.z == 0)
+        return;
+    else
+    {
+        pObjPos.x -= 0.5f;
+        pObjPos.y -= 0.5f;
+        pObjPos.z -= 0.5f;
+    }
     if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * SCALE)
     {
         for (int i = 0; i < 4; i++)
@@ -426,7 +433,7 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
     pPos.y += pVel.y;
     pPos.z += pVel.z;
 
-    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.y > 0 ? 1 : -1), pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f).isSolid)
+    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.x > 0 ? 1 : -1), pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f).isSolid)
     {
         pPos.x -= pVel.x;
         pVel.x = 0;
@@ -436,7 +443,7 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
         pPos.y -= pVel.y;
         pVel.y = 0;
     }
-    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f, pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.y > 0 ? 1 : -1)).isSolid)
+    if (pCity.getBlock(pPos.x / (float)SCALE + 0.5f, pPos.y / (float)SCALE - 0.5f, pPos.z / (float)SCALE + 0.5f + 1.f / (float)SCALE * (pVel.z > 0 ? 1 : -1)).isSolid)
     {
         pPos.z -= pVel.z;
         pVel.z = 0;
@@ -446,6 +453,14 @@ void collide(City& pCity, sf::Vector3f& pPos, sf::Vector3f& pVel)
 
 void genLights(sf::VertexArray& pVert, int pIndex, Block pBlock, sf::Vector3f pPlayerPos, sf::Vector3f pPlayerRot, sf::Vector3f pObjPos, sf::Vector2i pLightPos, sf::Vector2i pLightSize, sf::Vector2u pWinSize, bool pXLightState, bool pZLightState)
 {
+    if (pObjPos.x == 0 && pObjPos.y == 0 && pObjPos.z == 0)
+        return;
+    else
+    {
+        pObjPos.x -= 0.5f;
+        pObjPos.y -= 0.5f;
+        pObjPos.z -= 0.5f;
+    }
     if (pBlock.visXP && pPlayerPos.x > (pObjPos.x + 0.5f) * SCALE)
     {
         if (/**/project(pVert[pIndex + 0], pPlayerPos, pPlayerRot, sf::Vector3f(pObjPos.x + 0.5f, pObjPos.y + 0.5f - (pLightPos.y + pLightSize.y) / (float)TEXSIZE, pObjPos.z + 0.5f - (pLightPos.x) / (float)TEXSIZE),                pWinSize) &&
