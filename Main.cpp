@@ -47,7 +47,7 @@ int main()
 
     int delta, count, dayTime = 0, dayLength = 60000;
     unsigned long long ticks = 0;
-    bool focus = false, click = false, paused = false;
+    bool focus = true, click = false, paused = false;
 
     Block block;
 

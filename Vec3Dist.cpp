@@ -14,5 +14,5 @@ Vec3Dist::Vec3Dist(sf::Vector3f pPlayerPos, sf::Vector3f pObjPos)
           y = pObjPos.y * SCALE - pPlayerPos.y,
           z = pObjPos.z * SCALE - pPlayerPos.z;
 
-    dist = std::sqrt(x * x + y * y + z * z);
+    dist = sqrt(x * x + y * y + z * z);
 }

@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33815.320
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "3D-City", "3D-City.vcxproj", "{A97C8BB2-3A75-4762-A995-2E979CCF03FA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Debug|x64.ActiveCfg = Debug|x64
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Debug|x64.Build.0 = Debug|x64
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Debug|x86.ActiveCfg = Debug|Win32
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Debug|x86.Build.0 = Debug|Win32
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Release|x64.ActiveCfg = Release|x64
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Release|x64.Build.0 = Release|x64
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Release|x86.ActiveCfg = Release|Win32
+		{A97C8BB2-3A75-4762-A995-2E979CCF03FA}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7B675359-6F56-4B1B-AD05-E4AB871EE274}
+	EndGlobalSection
+EndGlobal
